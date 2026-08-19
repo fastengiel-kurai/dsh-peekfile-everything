@@ -12,7 +12,23 @@
 
 ## 当前状态
 
-项目处于设计和脚手架阶段，尚未实现插件功能。
+首个可运行切片已经实现：
+
+- DSH Host/Client 双端插件清单与构建产物。
+- EverythingCLI 自动检测、UTF-8 CSV 搜索和最多 100 条结果限制。
+- Windows 路径到 WSL 路径的转换。
+- 对话本地路径候选验证和可点击链接化。
+- 短期预览句柄、目录列表及支持 Range 的原始文件流。
+- DSH 标题栏入口、搜索结果表格和统一浮动预览面板。
+
+Office 转换、电子书专用渲染、多标签管理和原生文件引用仍在后续阶段。
+
+## 开发验证
+
+```bash
+node --test tests/*.test.js
+node build.mjs
+```
 
 完整开发方案位于 Obsidian 项目：
 
@@ -29,4 +45,3 @@ X:\Obsidian\Paradise\01-Projects\2026-8-19DSH文件浏览器插件\DSH文件浏�
 ## 许可证
 
 [MIT](LICENSE)
-
