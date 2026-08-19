@@ -1,0 +1,20 @@
+{
+  "name": "@kurai/dsh-peekfile-everything",
+  "version": "0.1.0",
+  "description": "DSH local file search, link detection, and floating preview plugin powered optionally by EverythingCLI.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "cordis",
+    "plugin",
+    "everything",
+    "file-preview"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
+}
+
