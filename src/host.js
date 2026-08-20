@@ -82,7 +82,7 @@ export function apply(ctx) {
     const rows = csvRows(text); rows.shift()
     return Promise.all(rows.map(async ([winPath, size, modified]) => {
       const path = windowsToWsl(winPath, driveMounts)
-      try { const target = await issue(path); return { ...target, windowsPath: winPath, size: Number(size) || target.size, modifiedAt: modified || target.modifiedAt, reason: basename(winPath).toLowerCase().includes(String(query).toLowerCase()) ? '文件名匹配' : '路径匹配' } } catch { return null }
+      try { const target = await issue(path),keyword=String(query).trim().toLowerCase(),filename=basename(winPath).toLowerCase(),extension=target.extension.toLowerCase(),reason=keyword&&filename.includes(keyword)?'关键词':keyword&&(keyword===extension||keyword===`.${extension}`)?'扩展名':'路径';return { ...target, windowsPath: winPath, size: Number(size) || target.size, modifiedAt: modified || target.modifiedAt, reason } } catch { return null }
     })).then((items) => items.filter(Boolean))
   }
   const methods = {
