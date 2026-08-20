@@ -2,6 +2,8 @@
 
 `dsh-peekfile-everything` 是面向 DeepSeek Harness Web 的本地文件搜索与预览插件。
 
+代码和脚本文件仅以带格式、带行号的只读文本方式预览。PeekFile 不检测或运行代码项目，不提供终端、开发服务器、localhost 调试或运行日志功能。
+
 计划提供以下能力：
 
 - 通过 EverythingCLI 搜索本地文件；EverythingCLI 是可选依赖。
@@ -34,7 +36,7 @@
 - Document Picture-in-Picture → Popup → 页面内 Overlay 三级预览降级。
 - 预览选区按行号添加到对话，以及系统默认程序打开。
 
-项目运行、网页标记和字幕等高级能力仍在后续阶段。
+字幕、图片标注和 OCR 等文件预览增强能力仍在后续阶段。
 
 ## 开发验证
 
