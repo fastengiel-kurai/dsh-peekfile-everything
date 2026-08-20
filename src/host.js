@@ -6,7 +6,7 @@ import { basename, dirname, extname, relative, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { describePath, normalizeCandidate, parseCandidate, windowsToWsl } from './core.js'
+import { describePath, matchSnippet, normalizeCandidate, parseCandidate, windowsToWsl } from './core.js'
 import { convertOffice, isOfficePath, officeCapability } from './office.js'
 import { ebookCapability, isEbookPath, prepareEbook } from './ebook.js'
 import { renderDocument, renderable } from './render.js'
@@ -82,7 +82,7 @@ export function apply(ctx) {
     const rows = csvRows(text); rows.shift()
     return Promise.all(rows.map(async ([winPath, size, modified]) => {
       const path = windowsToWsl(winPath, driveMounts)
-      try { const target = await issue(path),keyword=String(query).trim().toLowerCase(),filename=basename(winPath).toLowerCase(),extension=target.extension.toLowerCase(),reason=keyword&&filename.includes(keyword)?'关键词':keyword&&(keyword===extension||keyword===`.${extension}`)?'扩展名':'路径';return { ...target, windowsPath: winPath, size: Number(size) || target.size, modifiedAt: modified || target.modifiedAt, reason } } catch { return null }
+      try { const target = await issue(path);return { ...target, windowsPath: winPath, size: Number(size) || target.size, modifiedAt: modified || target.modifiedAt, reason:matchSnippet(basename(winPath),query) } } catch { return null }
     })).then((items) => items.filter(Boolean))
   }
   const methods = {

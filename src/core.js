@@ -22,6 +22,11 @@ export const normalizeCandidate = (value, cwd, home, driveMounts = {}) => {
   if (clean.startsWith('~/')) return resolve(home, clean.slice(2))
   return clean.startsWith('/') ? resolve(clean) : resolve(cwd, clean)
 }
+export const matchSnippet = (filename, query) => {
+  const source=String(filename),lower=source.toLocaleLowerCase(),terms=String(query).match(/"[^"]+"|[^\s]+/g)||[]
+  for(const raw of terms){const term=raw.replace(/^"|"$/g,'').replace(/^[-!]+/,'').replace(/^(?:file|folder|path|ext|name):/i,'').replace(/[?*]+/g,'').trim();if(!term)continue;const index=lower.indexOf(term.toLocaleLowerCase());if(index<0)continue;const tail=source.slice(index),snippet=tail.split(/[\s\\/\-–—_()[\]{}【】（）《》,，.。;；:：]+/,1)[0];return(snippet||source.slice(index,index+term.length)).slice(0,32)}
+  return '路径'
+}
 export const describePath = (fullPath, stats) => ({
   name: basename(fullPath),
   extension: stats.isDirectory() ? '' : extname(fullPath).slice(1).toLowerCase(),
