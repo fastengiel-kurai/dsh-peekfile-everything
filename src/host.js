@@ -68,10 +68,11 @@ export function apply(ctx) {
     const routePath=(assetsRoot?relative(assetsRoot,actual):basename(actual)).split('/').map(encodeURIComponent).join('/')
     return { ...describePath(actual, info), handle: id, previewUrl: `${BASE}/file/${id}/${routePath}` }
   }
-  const search = async ({ query, limit = 50 }) => {
+  const search = async ({ query, limit = 50, offset = 0 }) => {
     if (!available && !(await detect())) throw new Error('EverythingCLI 未安装或不可用')
-    const count = Math.max(1, Math.min(MAX_RESULTS, Number(limit) || 50))
-    const { stdout } = await exec(command, ['-n', String(count), '-csv', '-utf8-bom', '-size', '-date-modified', String(query || '')], { encoding: 'buffer', timeout: 15000, maxBuffer: 8 << 20 })
+    const count = Math.max(1, Math.min(MAX_RESULTS + 1, Number(limit) || 50))
+    const start=Math.max(0,Number(offset)||0)
+    const { stdout } = await exec(command, ['-viewport-offset',String(start),'-viewport-count',String(count), '-csv', '-utf8-bom', '-size', '-date-modified', String(query || '')], { encoding: 'buffer', timeout: 15000, maxBuffer: 8 << 20 })
     const bytes = Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout)
     const text = new TextDecoder('gb18030').decode(bytes.subarray(bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf ? 3 : 0))
     const rows = csvRows(text); rows.shift()
@@ -83,6 +84,7 @@ export function apply(ctx) {
   const methods = {
     capability: async () => ({ everything: await detect(), command, preview: true, driveMounts: await refreshDriveMounts(), office:await officeCapability(), ebook:await ebookCapability() }),
     search,
+    'search-page':async ({query,page=0,pageSize=50})=>{const size=Math.max(1,Math.min(MAX_RESULTS,Number(pageSize)||50)),index=Math.max(0,Number(page)||0),items=await search({query,limit:size+1,offset:index*size});return{items:items.slice(0,size),page:index,pageSize:size,hasMore:items.length>size}},
     resolve: async ({ candidates, cwd }) => ({ items: (await Promise.all((candidates || []).slice(0, 50).map(async (candidate) => { try { return { candidate, ok: true, target: await issue(candidate, cwd) } } catch { return { candidate, ok: false } } }))) }),
     list: async ({ path }) => {
       const root = await issue(path); if (root.kind !== 'directory') throw new Error('path is not a directory')
