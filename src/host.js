@@ -5,6 +5,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, extname } from 'node:path'
 import { promisify } from 'node:util'
 import { describePath, normalizeCandidate, windowsToWsl } from './core.js'
+import { convertOffice, isOfficePath, officeCapability } from './office.js'
 
 export const name = 'dsh-peekfile-everything'
 export const inject = ['webServer']
@@ -46,7 +47,8 @@ export function apply(ctx) {
   const refreshDriveMounts = async () => {
     try {
       const lines = (await readFile('/proc/mounts', 'utf8')).split('\n')
-      driveMounts = Object.fromEntries(lines.map(line => line.split(' ')).filter(parts => /^[A-Za-z]:$/.test(parts[0] || '') && parts[1]).map(parts => [parts[0][0].toUpperCase(), parts[1].replaceAll('\\040', ' ')]))
+      const mappings = lines.map(line => line.split(' ')).filter(parts => /^[A-Za-z]:/.test(parts[0] || '') && /^\/mnt\/[a-z]$/.test(parts[1] || '')).map(parts => [parts[0][0].toUpperCase(), parts[1].replaceAll('\\040', ' ')])
+      driveMounts = Object.fromEntries(mappings)
     } catch { driveMounts = {} }
     return driveMounts
   }
@@ -75,7 +77,7 @@ export function apply(ctx) {
     })).then((items) => items.filter(Boolean))
   }
   const methods = {
-    capability: async () => ({ everything: await detect(), command, preview: true, driveMounts: await refreshDriveMounts() }),
+    capability: async () => ({ everything: await detect(), command, preview: true, driveMounts: await refreshDriveMounts(), office:await officeCapability() }),
     search,
     resolve: async ({ candidates, cwd }) => ({ items: (await Promise.all((candidates || []).slice(0, 50).map(async (candidate) => { try { return { candidate, ok: true, target: await issue(candidate, cwd) } } catch { return { candidate, ok: false } } }))) }),
     list: async ({ path }) => {
@@ -88,6 +90,7 @@ export function apply(ctx) {
       const boundary = allowedRoot(root.path)
       return { path:root.path, root:boundary, parent:root.path === boundary ? boundary : dirname(root.path), items:entries }
     },
+    convert: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source)||!isOfficePath(source))throw new Error('unsupported office path');return issue(await convertOffice(source)) },
   }
   const handler = async (req, res) => {
     const url = new URL(req.url || '/', 'http://localhost')

@@ -18,7 +18,7 @@ function apply(ctx){
   function Button(){return h('button',{className:'peekfile-btn',title:'PeekFile 文件搜索与预览',onClick:()=>openPanel()},'⌕ 文件')}
   function Panel(){
     const [open,setOpen]=React.useState(false),[query,setQuery]=React.useState(''),[items,setItems]=React.useState([]),[tabs,setTabs]=React.useState([]),[selected,setSelected]=React.useState(null),[error,setError]=React.useState(''),[cap,setCap]=React.useState(null),[directory,setDirectory]=React.useState(null),[position,setPosition]=React.useState(null)
-    const openTarget=React.useCallback(target=>{setOpen(true);if(!target)return;if(target.kind==='directory'){void browse(target.path);return}setTabs(old=>old.some(x=>samePath(x,target))?old:[...old,target]);setSelected(target)},[])
+    const openTarget=React.useCallback(async target=>{setOpen(true);if(!target)return;if(target.kind==='directory'){void browse(target.path);return}if(['doc','docx','xls','xlsx','ppt','pptx','odt','ods','odp'].includes(target.extension)){try{setError('正在转换 Office 文档…');const converted=await api('convert',{path:target.path});target={...converted,name:target.name,sourcePath:target.path};setError('')}catch(e){setError(e.message);return}}setTabs(old=>old.some(x=>samePath(x,target))?old:[...old,target]);setSelected(target)},[])
     React.useEffect(()=>{openPanel=openTarget;return()=>{openPanel=()=>{}}},[openTarget])
     React.useEffect(()=>{if(open)api('capability').then(setCap).catch(e=>setError(e.message))},[open])
     const search=async()=>{try{setError('');setDirectory(null);setItems(await api('search',{query,limit:50}))}catch(e){setError(e.message)}}
