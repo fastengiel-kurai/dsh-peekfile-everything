@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { createReadStream } from 'node:fs'
-import { access, readFile, readdir, realpath, stat } from 'node:fs/promises'
+import { access, mkdir, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, extname, relative, resolve } from 'node:path'
 import { promisify } from 'node:util'
@@ -13,6 +13,7 @@ export const inject = ['webServer']
 const exec = promisify(execFile)
 const BASE = '/__peekfile'
 const MAX_BODY = 1 << 20
+const MAX_UPLOAD = 64 << 20
 const MAX_RESULTS = 100
 
 const csvRows = (text) => {
@@ -94,9 +95,19 @@ export function apply(ctx) {
     },
     convert: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source)||!isOfficePath(source))throw new Error('unsupported office path');const output=await convertOffice(source);return issue(output,process.cwd(),dirname(output)) },
     ebook: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source)||!isEbookPath(source))throw new Error('unsupported ebook path');const book=await prepareEbook(source);return issue(book.entry,process.cwd(),book.root) },
+    lines: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source))throw new Error('path outside allowed roots');const info=await stat(source);if(!info.isFile()||info.size>(4<<20))return {lines:1};const text=await readFile(source,'utf8');return {lines:Math.max(1,text.split('\n').length)} },
   }
   const handler = async (req, res) => {
     const url = new URL(req.url || '/', 'http://localhost')
+    if(req.method==='POST'&&url.pathname===`${BASE}/upload`){
+      try{
+        const requestedRoot=decodeURIComponent(String(req.headers['x-peekfile-root']||'')),root=await realpath(requestedRoot)
+        if(!allowed(root)||(await stat(root)).isDirectory()===false)throw new Error('upload root is not allowed')
+        const rawName=decodeURIComponent(String(req.headers['x-peekfile-name']||'file')),name=rawName.replace(/[\\/:*?"<>|\u0000-\u001f]/g,'_').slice(0,160)||'file'
+        const chunks=[];let total=0;for await(const chunk of req){total+=chunk.length;if(total>MAX_UPLOAD)throw new Error('file exceeds 64 MB');chunks.push(chunk)}
+        const dropDir=`${root}/.dsh-drops`;await mkdir(dropDir,{recursive:true});const output=`${dropDir}/${Date.now()}-${name}`;await writeFile(output,Buffer.concat(chunks));return json(res,{ok:true,value:await issue(output)})
+      }catch(error){return json(res,{ok:false,error:String(error?.message||error)},400)}
+    }
     if (req.method === 'POST' && url.pathname === `${BASE}/api`) {
       try { const body = await readJson(req); const fn = methods[body.method]; if (!fn) return json(res, { ok:false, error:'unknown method' }, 404); return json(res, { ok:true, value:await fn(body.args || {}) }) } catch (error) { return json(res, { ok:false, error:String(error?.message || error) }, 400) }
     }
