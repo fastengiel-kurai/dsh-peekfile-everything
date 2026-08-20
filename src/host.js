@@ -2,10 +2,11 @@ import { execFile } from 'node:child_process'
 import { createReadStream } from 'node:fs'
 import { access, readFile, readdir, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { basename, dirname, extname } from 'node:path'
+import { basename, dirname, extname, relative, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { describePath, normalizeCandidate, windowsToWsl } from './core.js'
 import { convertOffice, isOfficePath, officeCapability } from './office.js'
+import { ebookCapability, isEbookPath, prepareEbook } from './ebook.js'
 
 export const name = 'dsh-peekfile-everything'
 export const inject = ['webServer']
@@ -37,7 +38,7 @@ const readJson = async (req) => {
 }
 const json = (res, body, status = 200) => { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(body)) }
 const mime = (path) => ({
-  '.pdf':'application/pdf','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.webp':'image/webp','.svg':'image/svg+xml','.mp4':'video/mp4','.webm':'video/webm','.mp3':'audio/mpeg','.wav':'audio/wav','.ogg':'audio/ogg','.html':'text/html; charset=utf-8','.htm':'text/html; charset=utf-8','.md':'text/plain; charset=utf-8','.txt':'text/plain; charset=utf-8','.json':'application/json; charset=utf-8','.csv':'text/csv; charset=utf-8'
+  '.pdf':'application/pdf','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.webp':'image/webp','.svg':'image/svg+xml','.mp4':'video/mp4','.webm':'video/webm','.mp3':'audio/mpeg','.wav':'audio/wav','.ogg':'audio/ogg','.html':'text/html; charset=utf-8','.htm':'text/html; charset=utf-8','.xhtml':'application/xhtml+xml; charset=utf-8','.css':'text/css; charset=utf-8','.xml':'application/xml; charset=utf-8','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf','.otf':'font/otf','.md':'text/plain; charset=utf-8','.txt':'text/plain; charset=utf-8','.json':'application/json; charset=utf-8','.csv':'text/csv; charset=utf-8'
 }[extname(path).toLowerCase()] || 'application/octet-stream')
 
 export function apply(ctx) {
@@ -57,12 +58,13 @@ export function apply(ctx) {
   void detect()
   const allowedRoot = (actual) => [homedir(), ...Object.values(driveMounts)].find(root => actual === root || actual.startsWith(`${root}/`))
   const allowed = (actual) => allowedRoot(actual) !== undefined
-  const issue = async (candidate, cwd = process.cwd()) => {
+  const issue = async (candidate, cwd = process.cwd(), assetsRoot = null) => {
     const normalized = normalizeCandidate(candidate, cwd, homedir(), driveMounts)
     const actual = await realpath(normalized); const info = await stat(actual)
     if (!allowed(actual)) throw new Error('path is outside PeekFile allowed roots')
-    const id = crypto.randomUUID(); handles.set(id, { path: actual, expires: Date.now() + 30 * 60_000 })
-    return { ...describePath(actual, info), handle: id, previewUrl: `${BASE}/file/${id}/${encodeURIComponent(basename(actual))}` }
+    const id = crypto.randomUUID(); handles.set(id, { path: actual, assetsRoot, expires: Date.now() + 30 * 60_000 })
+    const routePath=(assetsRoot?relative(assetsRoot,actual):basename(actual)).split('/').map(encodeURIComponent).join('/')
+    return { ...describePath(actual, info), handle: id, previewUrl: `${BASE}/file/${id}/${routePath}` }
   }
   const search = async ({ query, limit = 50 }) => {
     if (!available && !(await detect())) throw new Error('EverythingCLI 未安装或不可用')
@@ -77,7 +79,7 @@ export function apply(ctx) {
     })).then((items) => items.filter(Boolean))
   }
   const methods = {
-    capability: async () => ({ everything: await detect(), command, preview: true, driveMounts: await refreshDriveMounts(), office:await officeCapability() }),
+    capability: async () => ({ everything: await detect(), command, preview: true, driveMounts: await refreshDriveMounts(), office:await officeCapability(), ebook:await ebookCapability() }),
     search,
     resolve: async ({ candidates, cwd }) => ({ items: (await Promise.all((candidates || []).slice(0, 50).map(async (candidate) => { try { return { candidate, ok: true, target: await issue(candidate, cwd) } } catch { return { candidate, ok: false } } }))) }),
     list: async ({ path }) => {
@@ -90,7 +92,8 @@ export function apply(ctx) {
       const boundary = allowedRoot(root.path)
       return { path:root.path, root:boundary, parent:root.path === boundary ? boundary : dirname(root.path), items:entries }
     },
-    convert: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source)||!isOfficePath(source))throw new Error('unsupported office path');return issue(await convertOffice(source)) },
+    convert: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source)||!isOfficePath(source))throw new Error('unsupported office path');const output=await convertOffice(source);return issue(output,process.cwd(),dirname(output)) },
+    ebook: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source)||!isEbookPath(source))throw new Error('unsupported ebook path');const book=await prepareEbook(source);return issue(book.entry,process.cwd(),book.root) },
   }
   const handler = async (req, res) => {
     const url = new URL(req.url || '/', 'http://localhost')
@@ -101,11 +104,13 @@ export function apply(ctx) {
     if (!match || (req.method !== 'GET' && req.method !== 'HEAD')) return json(res, { ok:false, error:'not found' }, 404)
     const target = handles.get(match[1]); if (!target || target.expires < Date.now()) return json(res, { ok:false, error:'preview handle expired' }, 404)
     try {
-      const info = await stat(target.path); const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || ''))
+      let servedPath=target.path
+      if(target.assetsRoot){const suffix=decodeURIComponent(url.pathname.replace(/^\/__peekfile\/file\/[^/]+\//,''));const candidate=resolve(target.assetsRoot,suffix);if(candidate===target.assetsRoot||candidate.startsWith(target.assetsRoot+'/'))servedPath=candidate;else throw new Error('asset path traversal')}
+      const info = await stat(servedPath); const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || ''))
       let start = 0; let end = info.size - 1; let status = 200
       if (range) { start = range[1] ? Number(range[1]) : Math.max(0, info.size - Number(range[2])); end = range[2] ? Math.min(info.size - 1, Number(range[2])) : info.size - 1; status = 206 }
-      res.writeHead(status, { 'content-type':mime(target.path), 'content-length':String(Math.max(0, end-start+1)), 'accept-ranges':'bytes', ...(status===206?{'content-range':`bytes ${start}-${end}/${info.size}`}:{}) })
-      if (req.method === 'HEAD') return res.end(); createReadStream(target.path, { start, end }).pipe(res)
+      res.writeHead(status, { 'content-type':mime(servedPath), 'content-length':String(Math.max(0, end-start+1)), 'accept-ranges':'bytes', ...(status===206?{'content-range':`bytes ${start}-${end}/${info.size}`}:{}) })
+      if (req.method === 'HEAD') return res.end(); createReadStream(servedPath, { start, end }).pipe(res)
     } catch (error) { json(res, { ok:false, error:String(error?.message || error) }, 404) }
   }
   ctx.effect(() => ctx.webServer.register({ kind:'prefix', path:BASE, handler }))
