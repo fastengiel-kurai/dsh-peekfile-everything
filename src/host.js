@@ -6,9 +6,10 @@ import { basename, dirname, extname, relative, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { describePath, normalizeCandidate, windowsToWsl } from './core.js'
+import { describePath, normalizeCandidate, parseCandidate, windowsToWsl } from './core.js'
 import { convertOffice, isOfficePath, officeCapability } from './office.js'
 import { ebookCapability, isEbookPath, prepareEbook } from './ebook.js'
+import { renderDocument, renderable } from './render.js'
 
 export const name = 'dsh-peekfile-everything'
 export const inject = ['webServer']
@@ -61,12 +62,15 @@ export function apply(ctx) {
   const allowedRoot = (actual) => [homedir(), ...Object.values(driveMounts)].find(root => actual === root || actual.startsWith(`${root}/`))
   const allowed = (actual) => allowedRoot(actual) !== undefined
   const issue = async (candidate, cwd = process.cwd(), assetsRoot = null) => {
+    const fragment=parseCandidate(candidate)
     const normalized = normalizeCandidate(candidate, cwd, homedir(), driveMounts)
     const actual = await realpath(normalized); const info = await stat(actual)
     if (!allowed(actual)) throw new Error('path is outside PeekFile allowed roots')
     const id = crypto.randomUUID(); handles.set(id, { path: actual, assetsRoot, expires: Date.now() + 30 * 60_000 })
-    const routePath=(assetsRoot?relative(assetsRoot,actual):basename(actual)).split('/').map(encodeURIComponent).join('/')
-    return { ...describePath(actual, info), handle: id, previewUrl: `${BASE}/file/${id}/${routePath}` }
+    const routePath=(assetsRoot?relative(assetsRoot,actual):basename(actual)).split('/').map(encodeURIComponent).join('/'),params=new URLSearchParams()
+    if(!assetsRoot&&renderable(actual))params.set('render','1');if(fragment.lineStart)params.set('lineStart',String(fragment.lineStart));if(fragment.lineEnd)params.set('lineEnd',String(fragment.lineEnd))
+    const hash=fragment.page?`#page=${fragment.page}`:fragment.time!==undefined?`#t=${fragment.time}`:''
+    return { ...describePath(actual, info),...fragment,handle:id,previewUrl:`${BASE}/file/${id}/${routePath}${params.size?`?${params}`:''}${hash}` }
   }
   const search = async ({ query, limit = 50, offset = 0 }) => {
     if (!available && !(await detect())) throw new Error('EverythingCLI 未安装或不可用')
@@ -99,6 +103,7 @@ export function apply(ctx) {
     convert: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source)||!isOfficePath(source))throw new Error('unsupported office path');const output=await convertOffice(source);return issue(output,process.cwd(),dirname(output)) },
     ebook: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source)||!isEbookPath(source))throw new Error('unsupported ebook path');const book=await prepareEbook(source);return issue(book.entry,process.cwd(),book.root) },
     lines: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source))throw new Error('path outside allowed roots');const info=await stat(source);if(!info.isFile()||info.size>(4<<20))return {lines:1};const text=await readFile(source,'utf8');return {lines:Math.max(1,text.split('\n').length)} },
+    'open-system':async ({path})=>{const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source))throw new Error('path outside allowed roots');if(process.platform==='linux'&&await access('/mnt/c/Windows/System32/cmd.exe').then(()=>true).catch(()=>false)){const converted=await exec('wslpath',['-w',source],{encoding:'utf8',timeout:5000});await exec('/mnt/c/Windows/System32/cmd.exe',['/c','start','',String(converted.stdout).trim()],{timeout:10000});return{opened:true}}await exec(process.platform==='darwin'?'open':'xdg-open',[source],{timeout:10000});return{opened:true}},
   }
   const handler = async (req, res) => {
     const url = new URL(req.url || '/', 'http://localhost')
@@ -125,6 +130,7 @@ export function apply(ctx) {
       let servedPath=target.path
       if(target.assetsRoot){const suffix=decodeURIComponent(url.pathname.replace(/^\/__peekfile\/file\/[^/]+\//,''));const candidate=resolve(target.assetsRoot,suffix);if(candidate===target.assetsRoot||candidate.startsWith(target.assetsRoot+'/'))servedPath=candidate;else throw new Error('asset path traversal')}
       const info = await stat(servedPath); const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || ''))
+      if(url.searchParams.get('render')==='1'&&renderable(servedPath)&&info.size<=16*1024*1024){const text=await readFile(servedPath,'utf8'),html=renderDocument(servedPath,text,{lineStart:Number(url.searchParams.get('lineStart'))||1,lineEnd:Number(url.searchParams.get('lineEnd'))||Number(url.searchParams.get('lineStart'))||1});res.writeHead(200,{'content-type':'text/html; charset=utf-8','content-length':String(Buffer.byteLength(html))});return res.end(html)}
       let start = 0; let end = info.size - 1; let status = 200
       if (range) { start = range[1] ? Number(range[1]) : Math.max(0, info.size - Number(range[2])); end = range[2] ? Math.min(info.size - 1, Number(range[2])) : info.size - 1; status = 206 }
       res.writeHead(status, { 'content-type':mime(servedPath), 'content-length':String(Math.max(0, end-start+1)), 'accept-ranges':'bytes', ...(status===206?{'content-range':`bytes ${start}-${end}/${info.size}`}:{}) })

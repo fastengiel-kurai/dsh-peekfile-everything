@@ -9,6 +9,7 @@ writeFileSync(join(root, 'lib', 'index.js'), readFileSync(join(root, 'src', 'hos
 writeFileSync(join(root, 'lib', 'core.js'), readFileSync(join(root, 'src', 'core.js'), 'utf8'))
 writeFileSync(join(root, 'lib', 'office.js'), readFileSync(join(root, 'src', 'office.js'), 'utf8'))
 writeFileSync(join(root, 'lib', 'ebook.js'), readFileSync(join(root, 'src', 'ebook.js'), 'utf8'))
+writeFileSync(join(root, 'lib', 'render.js'), readFileSync(join(root, 'src', 'render.js'), 'utf8'))
 const client = readFileSync(join(root, 'src', 'client.js'), 'utf8')
 writeFileSync(join(root, 'lib', 'client.js'), `window.__ModuleLoader__.load({
   id: ${JSON.stringify(pkg.name)},
