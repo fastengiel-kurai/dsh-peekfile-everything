@@ -9,7 +9,7 @@ import { pipeline } from 'node:stream/promises'
 import { describePath, matchSnippet, normalizeCandidate, parseCandidate, windowsToWsl } from './core.js'
 import { convertOffice, isOfficePath, officeCapability } from './office.js'
 import { ebookCapability, isEbookPath, prepareEbook } from './ebook.js'
-import { renderDocument, renderable } from './render.js'
+import { lineRenderable, renderDocument, renderable } from './render.js'
 
 export const name = 'dsh-peekfile-everything'
 export const inject = ['webServer']
@@ -102,7 +102,7 @@ export function apply(ctx) {
     },
     convert: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source)||!isOfficePath(source))throw new Error('unsupported office path');const output=await convertOffice(source);return issue(output,process.cwd(),dirname(output)) },
     ebook: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source)||!isEbookPath(source))throw new Error('unsupported ebook path');const book=await prepareEbook(source);return issue(book.entry,process.cwd(),book.root) },
-    lines: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source))throw new Error('path outside allowed roots');const info=await stat(source);if(!info.isFile()||info.size>(4<<20))return {lines:1};const text=await readFile(source,'utf8');return {lines:Math.max(1,text.split('\n').length)} },
+    lines: async ({ path }) => { const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source))throw new Error('path outside allowed roots');const info=await stat(source);if(!info.isFile()||!lineRenderable(source))throw new Error('当前文件不是行式文本');if(info.size>(16<<20))throw new Error('行式文本预览上限为 16 MiB');const text=await readFile(source,'utf8');return {lines:Math.max(1,text.split('\n').length)} },
     'open-system':async ({path})=>{const source=await realpath(normalizeCandidate(path,process.cwd(),homedir(),driveMounts));if(!allowed(source))throw new Error('path outside allowed roots');if(process.platform==='linux'&&await access('/mnt/c/Windows/System32/cmd.exe').then(()=>true).catch(()=>false)){const converted=await exec('wslpath',['-w',source],{encoding:'utf8',timeout:5000});await exec('/mnt/c/Windows/System32/cmd.exe',['/c','start','',String(converted.stdout).trim()],{timeout:10000});return{opened:true}}await exec(process.platform==='darwin'?'open':'xdg-open',[source],{timeout:10000});return{opened:true}},
   }
   const handler = async (req, res) => {
