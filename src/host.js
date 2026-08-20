@@ -53,7 +53,8 @@ export function apply(ctx) {
   void refreshDriveMounts()
   const detect = async () => { try { await access(command); await exec(command, ['-version'], { timeout: 4000 }); available = true } catch { available = false }; return available }
   void detect()
-  const allowed = (actual) => [homedir(), ...Object.values(driveMounts)].some(root => actual === root || actual.startsWith(`${root}/`))
+  const allowedRoot = (actual) => [homedir(), ...Object.values(driveMounts)].find(root => actual === root || actual.startsWith(`${root}/`))
+  const allowed = (actual) => allowedRoot(actual) !== undefined
   const issue = async (candidate, cwd = process.cwd()) => {
     const normalized = normalizeCandidate(candidate, cwd, homedir(), driveMounts)
     const actual = await realpath(normalized); const info = await stat(actual)
@@ -77,7 +78,16 @@ export function apply(ctx) {
     capability: async () => ({ everything: await detect(), command, preview: true, driveMounts: await refreshDriveMounts() }),
     search,
     resolve: async ({ candidates, cwd }) => ({ items: (await Promise.all((candidates || []).slice(0, 50).map(async (candidate) => { try { return { candidate, ok: true, target: await issue(candidate, cwd) } } catch { return { candidate, ok: false } } }))) }),
-    list: async ({ path }) => { const root = await issue(path); if (root.kind !== 'directory') throw new Error('path is not a directory'); return { path:root.path, items:await Promise.all((await readdir(root.path, { withFileTypes:true })).slice(0,500).map(async entry => describePath(`${root.path}/${entry.name}`, await stat(`${root.path}/${entry.name}`)))) } },
+    list: async ({ path }) => {
+      const root = await issue(path); if (root.kind !== 'directory') throw new Error('path is not a directory')
+      const entries = await Promise.all((await readdir(root.path, { withFileTypes:true })).slice(0,500).map(async entry => {
+        const child = `${root.path}/${entry.name}`
+        return entry.isDirectory() ? describePath(child, await stat(child)) : issue(child)
+      }))
+      entries.sort((a,b) => a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'directory' ? -1 : 1)
+      const boundary = allowedRoot(root.path)
+      return { path:root.path, root:boundary, parent:root.path === boundary ? boundary : dirname(root.path), items:entries }
+    },
   }
   const handler = async (req, res) => {
     const url = new URL(req.url || '/', 'http://localhost')
