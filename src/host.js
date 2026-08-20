@@ -1,9 +1,11 @@
 import { execFile } from 'node:child_process'
-import { createReadStream } from 'node:fs'
-import { access, mkdir, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises'
+import { createReadStream, createWriteStream } from 'node:fs'
+import { access, mkdir, readFile, readdir, realpath, stat, unlink } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, extname, relative, resolve } from 'node:path'
 import { promisify } from 'node:util'
+import { Transform } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import { describePath, normalizeCandidate, windowsToWsl } from './core.js'
 import { convertOffice, isOfficePath, officeCapability } from './office.js'
 import { ebookCapability, isEbookPath, prepareEbook } from './ebook.js'
@@ -13,7 +15,6 @@ export const inject = ['webServer']
 const exec = promisify(execFile)
 const BASE = '/__peekfile'
 const MAX_BODY = 1 << 20
-const MAX_UPLOAD = 64 << 20
 const MAX_RESULTS = 100
 
 const csvRows = (text) => {
@@ -104,8 +105,12 @@ export function apply(ctx) {
         const requestedRoot=decodeURIComponent(String(req.headers['x-peekfile-root']||'')),root=await realpath(requestedRoot)
         if(!allowed(root)||(await stat(root)).isDirectory()===false)throw new Error('upload root is not allowed')
         const rawName=decodeURIComponent(String(req.headers['x-peekfile-name']||'file')),name=rawName.replace(/[\\/:*?"<>|\u0000-\u001f]/g,'_').slice(0,160)||'file'
-        const chunks=[];let total=0;for await(const chunk of req){total+=chunk.length;if(total>MAX_UPLOAD)throw new Error('file exceeds 64 MB');chunks.push(chunk)}
-        const dropDir=`${root}/.dsh-drops`;await mkdir(dropDir,{recursive:true});const output=`${dropDir}/${Date.now()}-${name}`;await writeFile(output,Buffer.concat(chunks));return json(res,{ok:true,value:await issue(output)})
+        const configuredMb=Number(req.headers['x-peekfile-limit-mb']||10),limitMb=Number.isFinite(configuredMb)&&configuredMb>0?configuredMb:10,limitBytes=limitMb*1024*1024
+        const declared=Number(req.headers['content-length']||0);if(declared>limitBytes)throw new Error(`file exceeds ${limitMb} MB`)
+        const dropDir=`${root}/.dsh-drops`;await mkdir(dropDir,{recursive:true});const output=`${dropDir}/${Date.now()}-${name}`;let total=0
+        const meter=new Transform({transform(chunk,_encoding,callback){total+=chunk.length;callback(total>limitBytes?new Error(`file exceeds ${limitMb} MB`):null,chunk)}})
+        try{await pipeline(req,meter,createWriteStream(output,{flags:'wx'}))}catch(error){await unlink(output).catch(()=>{});throw error}
+        return json(res,{ok:true,value:await issue(output)})
       }catch(error){return json(res,{ok:false,error:String(error?.message||error)},400)}
     }
     if (req.method === 'POST' && url.pathname === `${BASE}/api`) {
