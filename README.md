@@ -228,22 +228,22 @@ dsh plugin --profile web add dsh-better-sidebar@latest
 用途：搜索 Windows 本地磁盘。Everything 必须已经运行，PeekFile 从 WSL 调用 `es.exe`。
 
 1. 从 [voidtools Everything](https://www.voidtools.com/downloads/) 安装 Everything 1.5（低于1.5版本的不能加载cli）。
-2. 从 [ES CLI 下载页](https://www.voidtools.com/downloads/#cli) 下载与系统架构匹配的 `es.exe`。
-3. 确认 Windows 中 Everything 正在运行。
+2. 从 [ES CLI 下载页](https://www.voidtools.com/downloads/#cli) 下载与系统架构匹配的 `es.exe`，放到wsl path里。
+3. 确认 Windows 中 Everything 正在运行，在wsl确认可以调用es命令。
 4. 在 PeekFile 设置中填写 WSL 可访问路径，例如：
 
 ```text
-/mnt/c/Tools/Everything/es.exe
+/home/用户名/.local/bin/es
 ```
 
 验证：
 
 ```bash
-/mnt/c/Tools/Everything/es.exe -version
+es -version
 ```
 
-为了兼容性，没有把wsl内部目录添加到everything索引目录列表中，everything搜不到wsl内部目录的文件，因此 PeekFile 另外提供 WSL 搜索通道。
-如果你想让everything也接管wsl内的文件，也可以把\\wsl.localhost\Ubuntu-24.04\home\用户名，添加到everything索引目录中。（我没试，可能会造成wsl内的文件搜两次，需要每次关闭wsl内部搜索通道）
+为了兼容性，没有把wsl内部目录添加到everything索引目录列表中，everything默认搜不到wsl内部目录的文件，因此 PeekFile 另外提供 WSL 直接搜索方式，可以在搜索通道里打开或者关闭wsl内部搜索。
+如果你想让everything也接管wsl内的文件，也可以把\\wsl.localhost\Ubuntu-24.04\home\用户名，添加到everything索引目录中，在everything的选项-索引-文件夹中，添加\\wsl.localhost\Ubuntu-24.04\home\用户名。（作者没试，可能会造成wsl内的文件被检索两次，需要每次关闭wsl内部搜索通道）
 
 
 ### FFmpeg
