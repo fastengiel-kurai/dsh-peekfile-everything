@@ -5,22 +5,24 @@
 PeekFile 连接当前工作目录、WSL 文件系统和 Windows Everything 索引，把散落在不同磁盘与目录中的文件带回 DSH 会话：搜索、浏览、预览、复制内容、截图、OCR，或作为文件引用加入对话。
 
 > 当前主要适配 Windows 11 + WSL2 Ubuntu 24.04 + DSH Web。Everything、Better Sidebar、文档转换与 OCR 工具均为可选组件；不安装它们也能使用工作目录/WSL 搜索、目录浏览和基础格式预览。
-
+<img width="1918" height="913" alt="侧边栏全景1" src="https://github.com/user-attachments/assets/e8b8ae12-a6df-4e58-8849-926840341894" />
 ## ✨ 主要功能模块
 
 ### 🔍 全盘文件搜索
 
 PeekFile 的核心定位是搜索“当前项目之外”的文件。
+<img width="762" height="726" alt="搜索界面001" src="https://github.com/user-attachments/assets/9f0f2588-4aca-4a85-b3f9-6f86aa7cd320" />
 
-- **工作目录搜索**：优先显示当前会话所属工作目录中的文件。
-- **WSL 搜索**：搜索 Linux/WSL 文件系统中的文件。
-- **Everything 搜索**：调用 Windows Everything 索引搜索本地磁盘。
-- 搜索范围可多选，默认全选；取消某一来源后立即重组已有结果。
+- **工作目录搜索**：优先显示当前会话所属工作目录中的文件（better sidebar只能预览工作目录内有权限的文档）。
+- **WSL 搜索**：搜索 Linux/WSL 文件系统中的文件，如果wsl自己的搜索效率太低，也可以把\\wsl.localhost\Ubuntu-24.04\home\用户名 文件夹放到everything的索引目录列表中。
+- **Everything 搜索**：调用 Windows Everything 索引搜索本地磁盘，everything 1.5版本，exe文件安装在win系统里，cli 也就是es命令安装在wsl里。。
+- 以上三个搜索范围可多选，默认全选；取消某一来源后立即重组现有结果。
 - 三个来源分别分页、分别受“每来源每页上限”控制，结果按“工作目录 → WSL → Everything”排序。
 - 搜索结果只缓存在当前页面内存中，不写入磁盘；开始全新搜索时释放旧缓存。
 - 在原查询后追加 `+关键词` 可筛选当前缓存，例如 `动画片 +合集`。
 - 保存最近 10 条去重历史，点击历史词即可直接搜索。
 - 显示文件名、类型、上级目录、搜索来源及文件名中的命中片段。
+<img width="765" height="725" alt="二次筛选" src="https://github.com/user-attachments/assets/fb0a3238-6863-4ebe-8cb6-f930794f8827" />
 
 ### 🗂️ 目录浏览
 
@@ -32,6 +34,7 @@ PeekFile 的核心定位是搜索“当前项目之外”的文件。
 ### 🔗 对话路径接管
 
 不经过 PeekFile 搜索得到的路径同样可以预览。
+<img width="1164" height="560" alt="image" src="https://github.com/user-attachments/assets/6590ff58-6f40-4fa0-8738-dc2393244538" />
 
 - 自动识别对话中的 Windows、WSL/POSIX 和工作区本地路径。
 - 将有效路径转换为可点击链接，使用与搜索结果相同的预览流程。
@@ -51,6 +54,7 @@ PeekFile 的核心定位是搜索“当前项目之外”的文件。
 ## 🤝 与 Better Sidebar 配合使用
 
 [DSH Better Sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 是工作目录内的侧边工作台，PeekFile 是跨目录、跨文件系统的全盘入口。两者不是互相替代，而是分工协作：
+<img width="1918" height="913" alt="侧边栏全景1" src="https://github.com/user-attachments/assets/5e418532-9561-4fc4-bfc4-d66c47f74d9e" />
 
 | 使用场景 | Better Sidebar | PeekFile |
 | --- | --- | --- |
@@ -62,8 +66,11 @@ PeekFile 的核心定位是搜索“当前项目之外”的文件。
 | 界面形态 | 固定侧栏/底栏工作台 | 浮动窗口或注册为 Sidebar Tab |
 
 PeekFile 提供两种配合方式：
+<img width="801" height="806" alt="设置1" src="https://github.com/user-attachments/assets/3c368924-e633-4f56-89fc-9ec70dabe226" />
+
 
 1. **界面位置**：选择“浮动窗口”时使用 PeekFile 自己的预览窗；选择“Better Sidebar”时，将 PeekFile 搜索主界面注册为 Sidebar Tab。
+    <img width="955" height="916" alt="侧边栏1" src="https://github.com/user-attachments/assets/204a39c1-3d65-4f08-9db9-308a30b12e85" />
 2. **预览处理**：选择“PeekFile”时全部由 PeekFile 处理；选择“按文件类型自定义”时，可分别指定文本、图片、视频、PDF、Office、电子书等由 PeekFile 或 Better Sidebar 打开。
 
 当某类文件选择 Better Sidebar 时，PeekFile 只传递文件路径，后续预览和操作由 Sidebar 自己管理。由于 Sidebar 的文件服务以会话工作目录为边界，**工作目录以外的文件始终由 PeekFile 预览**，并提示“Sidebar只能预览工作目录内文件。”
@@ -83,6 +90,7 @@ PeekFile 提供两种配合方式：
 | EPUB | 连续滚动阅读，章节无断点 | 上一页、下一页、当前进度、上一章、下一章、选取复制、截图 |
 | MOBI、AZW、AZW3、FB2 | Calibre 转 EPUB 后阅读 | 与 EPUB 阅读器一致 |
 | 压缩包及其他格式 | 不做内嵌预览 | 系统关联程序打开 |
+<img width="1096" height="723" alt="电子书预览" src="https://github.com/user-attachments/assets/9678fcb6-cb55-4ed1-ad84-c5b20f6e7add" />
 
 ### 视频兼容与转码
 
@@ -92,15 +100,19 @@ PeekFile 提供两种配合方式：
 - 输出位于源文件同目录，保留主文件名并改为 `.mp4`；若同名文件已存在则停止，不覆盖原文件。
 - 点击画框截图前会先暂停当前视频并冻结点击时刻的画面。
 
-### PDF、Office 与 OCR
+<img width="1108" height="743" alt="视频播放" src="https://github.com/user-attachments/assets/c6138926-0383-42bd-867c-9419005c453e" />
 
+### PDF、Office 与 OCR
+<img width="1106" height="741" alt="office预览" src="https://github.com/user-attachments/assets/6032264e-f35a-4d0a-9052-8b687d4a7b76" />
 - PDF Inspector 将 PDF 识别为文本、混合或全图类型，但所有类型都直接预览原始 PDF。
 - 文本和混合 PDF 可使用 PDF 自带文本层直接选字，不需要先转换文档。
 - Office 文档由 OfficeCLI 转成 HTML 进行浏览器预览和文本选择。
 - PDF/Office 的“全文发送”才调用 AnyDoc 转为 Markdown，并以 Markdown 文件方式加入会话。
 - 图片、截图和全图 PDF 的 OCR 可交给 MinerU，识别结果直接进入会话。
+<img width="1108" height="741" alt="pdf预览" src="https://github.com/user-attachments/assets/2ed19204-5eb3-4a4d-b10e-0abb32e9f63c" />
 
 ### 电子书阅读
+<img width="1096" height="723" alt="电子书预览" src="https://github.com/user-attachments/assets/974ad506-e404-40f6-a5eb-5b1dc93500b7" />
 
 - EPUB 解包后按书脊顺序连续拼接章节，章与章之间可以直接滚动。
 - 页面保持纵向滚动，不强制分页；上一页/下一页按可视区域滚动，因此可以停在两页之间进行截图。
@@ -124,7 +136,8 @@ dsh plugin --profile web add github:fastengiel-kurai/dsh-peekfile-everything
 安装后重启 DSH Web。若你的机器已经配置本项目使用的服务命令：
 
 ```bash
-dshserver restart
+//关闭旧进程
+dsh web
 ```
 
 `dshserver` 是本机进程管理包装命令，并非 DSH 或 PeekFile 自带命令。其他用户请使用自己的启动方式重启 DSH，然后在浏览器中执行硬刷新（`Ctrl/Cmd + Shift + R`）。
@@ -175,6 +188,7 @@ dsh plugin --profile web remove @kurai/dsh-peekfile-everything
 ## 🧩 可选组件与外挂工具
 
 PeekFile 不会自动修改操作系统环境。安装工具后，在“设置 → PeekFile → 外挂工具”中启用并填写命令路径，再点击“重新检测全部工具”。缺失某项只会关闭依赖它的增强能力。
+<img width="792" height="804" alt="设置2" src="https://github.com/user-attachments/assets/8d972cc9-57a1-4803-a94c-7080f5071074" />
 
 ### Better Sidebar
 
@@ -190,7 +204,7 @@ dsh plugin --profile web add dsh-better-sidebar@latest
 
 用途：搜索 Windows 本地磁盘。Everything 必须已经运行，PeekFile 从 WSL 调用 `es.exe`。
 
-1. 从 [voidtools Everything](https://www.voidtools.com/downloads/) 安装 Everything。
+1. 从 [voidtools Everything](https://www.voidtools.com/downloads/) 安装 Everything 1.5（低于1.5版本的不能加载cli）。
 2. 从 [ES CLI 下载页](https://www.voidtools.com/downloads/#cli) 下载与系统架构匹配的 `es.exe`。
 3. 确认 Windows 中 Everything 正在运行。
 4. 在 PeekFile 设置中填写 WSL 可访问路径，例如：
@@ -205,7 +219,9 @@ dsh plugin --profile web add dsh-better-sidebar@latest
 /mnt/c/Tools/Everything/es.exe -version
 ```
 
-Everything 不能索引 WSL 的 Linux 文件，因此 PeekFile 另外提供 WSL 搜索通道。
+为了兼容性，没有把wsl内部目录添加到everything索引目录列表中，everything搜不到wsl内部目录的文件，因此 PeekFile 另外提供 WSL 搜索通道。
+如果你想让everything也接管wsl内的文件，也可以把\\wsl.localhost\Ubuntu-24.04\home\用户名，添加到everything索引目录中。（我没试，可能会造成wsl内的文件搜两次，需要每次关闭wsl内部搜索通道）
+
 
 ### FFmpeg
 
@@ -288,7 +304,7 @@ rg --version
 ```
 
 ### MinerU OCR
-
+<img width="804" height="807" alt="设置3" src="https://github.com/user-attachments/assets/014a8022-5925-4b59-86bf-89e0d06672b1" />
 用途：识别图片、框选截图及全图 PDF 中的文字、表格和公式。
 
 MinerU 在 PeekFile 中通过 API 使用，不要求安装本地 MinerU：
