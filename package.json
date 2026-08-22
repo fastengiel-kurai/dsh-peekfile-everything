@@ -1,7 +1,7 @@
 {
   "name": "@kurai/dsh-peekfile-everything",
   "version": "0.1.0",
-  "description": "DSH local file search, link detection, and floating preview plugin powered optionally by EverythingCLI.",
+  "description": "DSH plugin for workspace, WSL, and Everything file search with local multi-format preview.",
   "type": "module",
   "private": true,
   "main": "lib/index.js",
@@ -28,6 +28,7 @@
   "keywords": [
     "deepseek-harness",
     "dsh",
+    "dsh-plugin",
     "cordis",
     "plugin",
     "everything",
@@ -43,6 +44,12 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-input-trigger": "^0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-settings": "^0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.8",
+    "@deepseek-ai/dsh-host-webserver": "^0.1.0-rc.8",
     "dsh-better-sidebar": ">=0.12.0",
     "react": "^18.2.0"
   },
@@ -56,5 +63,9 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/fastengiel-kurai/dsh-peekfile-everything.git"
+  },
+  "homepage": "https://github.com/fastengiel-kurai/dsh-peekfile-everything#readme",
+  "bugs": {
+    "url": "https://github.com/fastengiel-kurai/dsh-peekfile-everything/issues"
   }
 }
