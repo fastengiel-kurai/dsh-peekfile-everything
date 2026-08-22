@@ -5,7 +5,7 @@ coverage/
 .cache/
 .DS_Store
 *.log
+_tmp_*
 .env
 .env.*
 !.env.example
-

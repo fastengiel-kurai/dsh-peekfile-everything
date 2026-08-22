@@ -36,3 +36,16 @@ export const describePath = (fullPath, stats) => ({
   size: stats.size,
   modifiedAt: stats.mtime.toISOString(),
 })
+
+export const mergeSearchSources = (sources, limit = 101) => {
+  const seen = new Set(), merged = []
+  for (const items of sources) {
+    for (const item of items) {
+      if (!item?.path || seen.has(item.path)) continue
+      seen.add(item.path)
+      merged.push(item)
+      if (merged.length >= limit) return merged
+    }
+  }
+  return merged
+}

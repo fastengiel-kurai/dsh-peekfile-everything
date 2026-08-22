@@ -11,11 +11,13 @@ writeFileSync(join(root, 'lib', 'office.js'), readFileSync(join(root, 'src', 'of
 writeFileSync(join(root, 'lib', 'ebook.js'), readFileSync(join(root, 'src', 'ebook.js'), 'utf8'))
 writeFileSync(join(root, 'lib', 'render.js'), readFileSync(join(root, 'src', 'render.js'), 'utf8'))
 const client = readFileSync(join(root, 'src', 'client.js'), 'utf8')
+const clientCore = readFileSync(join(root, 'src', 'client-core.js'), 'utf8').replace(/^export /gm, '')
 writeFileSync(join(root, 'lib', 'client.js'), `window.__ModuleLoader__.load({
   id: ${JSON.stringify(pkg.name)},
   factory: (require) => {
     const module = { exports: {} }; const exports = module.exports;
     const React = require('react');
+${clientCore}
 ${client}
     exports.apply = apply; exports.inject = inject; return module.exports;
   }
