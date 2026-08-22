@@ -5,6 +5,20 @@
 PeekFile 连接当前工作目录、WSL 文件系统和 Windows Everything 索引，把散落在不同磁盘与目录中的文件带回 DSH 会话：搜索、浏览、预览、复制内容、截图、OCR，或作为文件引用加入对话。
 
 > 当前主要适配 Windows 11 + WSL2 Ubuntu 24.04 + DSH Web。Everything、Better Sidebar、文档转换与 OCR 工具均为可选组件；不安装它们也能使用工作目录/WSL 搜索、目录浏览和基础格式预览。
+
+## ✅ 兼容性
+
+| 项目 | 已验证环境 |
+| --- | --- |
+| DSH | `0.1.0-rc.8`，mainline commit `141eb6fef83422698aef7a981029e843e8161534` |
+| Node.js | `>= 22` |
+| 操作系统 | Windows 11 + WSL2 Ubuntu 24.04 |
+| Better Sidebar（可选） | `0.14.0` |
+| 最近验证日期 | 2026-08-22 |
+| 验证记录 | [VERIFICATION.md](VERIFICATION.md) |
+
+其他 Linux 环境可能可以运行，但尚未完成同等实机验证；macOS 目前隐藏画框截图入口。
+
 <img width="1918" height="913" alt="侧边栏全景1" src="https://github.com/user-attachments/assets/e8b8ae12-a6df-4e58-8849-926840341894" />
 ## ✨ 主要功能模块
 
@@ -136,11 +150,10 @@ dsh plugin --profile web add github:fastengiel-kurai/dsh-peekfile-everything
 安装后重启 DSH Web。若你的机器已经配置本项目使用的服务命令：
 
 ```bash
-//关闭旧进程
 dsh web
 ```
 
-`dshserver` 是本机进程管理包装命令，并非 DSH 或 PeekFile 自带命令。其他用户请使用自己的启动方式重启 DSH，然后在浏览器中执行硬刷新（`Ctrl/Cmd + Shift + R`）。
+请先停止原有 DSH 进程，再用原来的工作目录和启动方式运行 `dsh web`，然后在浏览器中执行硬刷新（`Ctrl/Cmd + Shift + R`）。如果你自行配置了 systemd、PM2 或其他进程管理器，请使用对应的重启命令。
 
 如果 pnpm 提示 `Ignored build scripts` 或阻止 Git 依赖执行 `prepare`，进入 profile 目录批准构建，再重新安装：
 
@@ -184,6 +197,16 @@ dsh plugin --profile web add .
 ```bash
 dsh plugin --profile web remove @kurai/dsh-peekfile-everything
 ```
+
+### 最小使用示例
+
+1. 启动 DSH Web，进入任意会话。
+2. 点击会话右上角的 **PeekFiles**。
+3. 在搜索框输入文件名，例如 `report.pdf`。
+4. 保持“工作目录 / WSL / Everything”全选，点击搜索。
+5. 点击目录可继续浏览；点击文件会切换到预览区。
+
+Everything 未安装时，在搜索按钮后的范围菜单中取消 `Everything`，工作目录和 WSL 搜索仍可使用。也可以让模型在对话中输出一个有效本地路径，然后直接点击路径预览。
 
 ## 🧩 可选组件与外挂工具
 
@@ -351,6 +374,21 @@ Token 仅由 PeekFile Host 从本地文件读取，不返回浏览器前端，�
 - VLM/Pipeline 模型、语言和页码范围。
 - 超时时间、表格识别和公式识别。
 
+PeekFile 不读取专用环境变量。普通设置保存在浏览器 `localStorage` 的 `peekfile:settings` 中；搜索历史保存在 `peekfile:search-history` 中。MinerU Token 本身不进入浏览器设置，只保存其本地文件路径。
+
+## 🔐 权限、网络与数据
+
+| 能力 | PeekFile 的行为 |
+| --- | --- |
+| 本地文件读取 | 根据搜索、目录浏览和预览操作读取工作目录、WSL 路径及 Windows 挂载路径 |
+| 本地文件写入 | 拖入文件时写入工作区 `.dsh-drops/`；转码时在源目录生成同名 `.mp4`；转换/OCR 缓存写入用户缓存目录 |
+| 外部程序 | 仅在相应设置启用时调用 FFmpeg、AnyDoc、OfficeCLI、PDF Inspector、Calibre、Unzip、Everything CLI、ripgrep 或系统打开程序 |
+| 网络访问 | 基础搜索和预览不需要联网；MinerU OCR 会把用户主动选择的文件或截图上传至配置的 MinerU API |
+| 凭据 | MinerU Token 从用户指定的本地文件读取，只用于 Host 发起 OCR 请求，不返回前端、不写入仓库 |
+| 浏览器存储 | 保存插件设置、搜索历史和界面偏好；搜索结果缓存仅驻留当前页面内存 |
+
+安装前请确认 DSH 进程对目标目录拥有读取权限。启用转码、拖入、另存或 OCR 前，应确认你有权处理对应文件。不要把生产密钥、Token 文件或含敏感内容的样本提交到 Issue。
+
 ## ❓ 常见问题
 
 | 现象 | 原因与处理 |
@@ -363,6 +401,13 @@ Token 仅由 PeekFile Host 从本地文件读取，不返回浏览器前端，�
 | MOBI/AZW 无法预览 | Calibre `ebook-convert` 未安装或路径错误 |
 | OCR 不可用 | 检查 MinerU 开关、Token 文件、API 地址与网络状态 |
 | 设置没有出现 PeekFile | 硬刷新浏览器；仍无效时重启 DSH，并确认插件已加入 `web` profile |
+
+### 日志与回滚
+
+- 前端错误：打开浏览器开发者工具，查看 Console 和 Network 中的 `/__peekfile/` 请求。
+- Host 错误：查看启动 `dsh web` 的终端输出；若使用 systemd，请查看对应 user service 日志。
+- 外挂工具错误：先在终端运行设置页显示的可执行路径和 `--version`/`-version`，再点击“重新检测全部工具”。
+- 回滚：执行卸载命令，重启 DSH；如需恢复旧版本，请使用固定 commit 安装，例如 `github:fastengiel-kurai/dsh-peekfile-everything#<commit>`。
 
 ## 🛠️ 开发
 
@@ -389,12 +434,18 @@ tests/             Node 测试
 - 包名：`@kurai/dsh-peekfile-everything`
 - Node.js：`>= 22`
 
+贡献代码前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。插件目录提交步骤见 [docs/CATALOG-SUBMISSION.md](docs/CATALOG-SUBMISSION.md)。
+
 ## 当前限制
 
 - Better Sidebar 交接仅适用于当前工作目录内的文件。
 - 浏览器视频解码能力受运行环境影响，部分格式必须转码。
 - Office/PDF 全文、电子书转换、视频转码和 OCR 依赖对应外挂工具。
 - macOS 已保留截图接口，但当前隐藏画框截图入口，等待实机验证。
+
+## 🔒 安全报告
+
+请不要在公开 Issue 中粘贴 Token、私人文件路径或包含敏感内容的日志。安全漏洞请通过 GitHub 的 [Private vulnerability reporting](https://github.com/fastengiel-kurai/dsh-peekfile-everything/security/advisories/new) 私下报告，详细策略见 [SECURITY.md](SECURITY.md)。普通缺陷和功能建议可使用 [GitHub Issues](https://github.com/fastengiel-kurai/dsh-peekfile-everything/issues)。
 
 ## License
 
